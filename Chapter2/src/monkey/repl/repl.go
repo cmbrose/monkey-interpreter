@@ -1,7 +1,6 @@
 package repl
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"monkey/lexer"
@@ -11,16 +10,16 @@ import (
 const PROMPT = ">>"
 
 func Start(in io.Reader, out io.Writer) {
-	scanner := bufio.NewScanner(in)
+	//scanner := bufio.NewScanner(in)
 
 	for {
 		fmt.Print(PROMPT)
-		scanned := scanner.Scan()
-		if !scanned {
-			return
-		}
+		// scanned := scanner.Scan()
+		// if !scanned {
+		// 	return
+		// }
 
-		line := scanner.Text()
+		line := "for (let i = 1; i < 10; let i = i + 1) { i }" // scanner.Text()
 		l := lexer.New(line)
 		p := parser.New(l)
 
@@ -32,6 +31,8 @@ func Start(in io.Reader, out io.Writer) {
 
 		io.WriteString(out, program.String())
 		io.WriteString(out, "\n")
+
+		return
 	}
 }
 

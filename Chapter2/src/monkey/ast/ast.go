@@ -49,8 +49,8 @@ type LetStatement struct {
 	Value Expression
 }
 
-func (l *LetStatement) statementNode()       {}
-func (l *LetStatement) TokenLiteral() string { return l.Token.Literal }
+func (ls *LetStatement) statementNode()       {}
+func (ls *LetStatement) TokenLiteral() string { return ls.Token.Literal }
 func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
@@ -85,6 +85,28 @@ func (r *ReturnStatement) String() string {
 	return out.String()
 }
 
+type ForLoopStatement struct {
+	Token               token.Token // the token.FOR token
+	InitializeStatement Statement
+	ContinueExpression  Expression
+	StepStatement       Expression
+	Body                *BlockStatement
+}
+
+func (fls *ForLoopStatement) statementNode()       {}
+func (fls *ForLoopStatement) TokenLiteral() string { return fls.Token.Literal }
+func (fls *ForLoopStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(fls.TokenLiteral() + " (")
+	out.WriteString(fls.InitializeStatement.String() + " ")
+	out.WriteString(fls.ContinueExpression.String() + " ")
+	out.WriteString(fls.StepStatement.String() + ") ")
+	out.WriteString(fls.Body.String())
+
+	return out.String()
+}
+
 type ExpressionStatement struct {
 	Token      token.Token // the first token of the expression
 	Expression Expression
@@ -94,7 +116,7 @@ func (es *ExpressionStatement) statementNode()       {}
 func (es *ExpressionStatement) TokenLiteral() string { return es.Token.Literal }
 func (es *ExpressionStatement) String() string {
 	if es.Expression != nil {
-		return es.Expression.String()
+		return es.Expression.String() + ";"
 	}
 	return ""
 }
@@ -168,9 +190,13 @@ func (b *Boolean) String() string       { return b.Token.Literal }
 
 type IfExpression struct {
 	Token       token.Token
+	Clauses     []*IfClause
+	Alternative *BlockStatement
+}
+
+type IfClause struct {
 	Condition   Expression
 	Consequence *BlockStatement
-	Alternative *BlockStatement
 }
 
 func (ie *IfExpression) expressionNode()      {}
@@ -178,15 +204,28 @@ func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *IfExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("if")
-	out.WriteString(ie.Condition.String())
-	out.WriteString(" ")
-	out.WriteString(ie.Consequence.String())
+	clauses := []string{}
+	for _, clause := range ie.Clauses {
+		clauses = append(clauses, clause.String())
+	}
+
+	out.WriteString(strings.Join(clauses, " else "))
 
 	if ie.Alternative != nil {
-		out.WriteString("else ")
+		out.WriteString(" else ")
 		out.WriteString(ie.Alternative.String())
 	}
+
+	return out.String()
+}
+
+func (ic *IfClause) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("if ")
+	out.WriteString(ic.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(ic.Consequence.String())
 
 	return out.String()
 }
@@ -201,9 +240,13 @@ func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
 
+	out.WriteString("{ ")
+
 	for _, s := range bs.Statements {
 		out.WriteString(s.String())
 	}
+
+	out.WriteString(" }")
 
 	return out.String()
 }
