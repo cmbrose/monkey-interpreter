@@ -89,7 +89,7 @@ type ForLoopStatement struct {
 	Token               token.Token // the token.FOR token
 	InitializeStatement Statement
 	ContinueExpression  Expression
-	StepStatement       Expression
+	StepExpression      Expression
 	Body                *BlockStatement
 }
 
@@ -101,7 +101,7 @@ func (fls *ForLoopStatement) String() string {
 	out.WriteString(fls.TokenLiteral() + " (")
 	out.WriteString(fls.InitializeStatement.String() + " ")
 	out.WriteString(fls.ContinueExpression.String() + " ")
-	out.WriteString(fls.StepStatement.String() + ") ")
+	out.WriteString(fls.StepExpression.String() + ") ")
 	out.WriteString(fls.Body.String())
 
 	return out.String()

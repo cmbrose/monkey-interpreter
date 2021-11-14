@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"monkey/ast"
 	"monkey/lexer"
+	"monkey/token"
 	"testing"
 )
 
@@ -622,10 +623,10 @@ func TestForLoopStatementParsing(t *testing.T) {
 		return
 	}
 
-	assign, ok := stmt.StepStatement.(*ast.InfixExpression)
+	assign, ok := stmt.StepExpression.(*ast.InfixExpression)
 	if !ok {
 		t.Fatalf("stmt.StepStatement is not ast.InfixExpression. got=%T",
-			stmt.StepStatement)
+			stmt.StepExpression)
 	}
 
 	if !testIdentifier(t, assign.Left, "x") {
@@ -653,6 +654,191 @@ func TestForLoopStatementParsing(t *testing.T) {
 	}
 
 	testIdentifier(t, bodyStmt.Expression, "x")
+}
+
+func TestForLoopStatementInitializeStatementParsing(t *testing.T) {
+	tests := []struct {
+		input             string
+		expectedStatement ast.Statement
+	}{
+		{
+			`let x = 0`,
+			&ast.LetStatement{
+				Token: token.Token{Literal: "let"},
+				Name:  &ast.Identifier{Value: "x"},
+				Value: &ast.IntegerLiteral{Token: token.Token{Literal: "0"}},
+			},
+		},
+		{
+			`x = 0`,
+			&ast.ExpressionStatement{
+				Expression: &ast.InfixExpression{
+					Left:     &ast.Identifier{Value: "x"},
+					Operator: "=",
+					Right:    &ast.IntegerLiteral{Token: token.Token{Literal: "0"}},
+				},
+			},
+		},
+		{
+			``,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		forInput := fmt.Sprintf("for (%s; x < 1; x = x + 1){}", tt.input)
+		program := parseAndCheckErrors(forInput, t)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ForLoopStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ForLoopStatement. got=%T",
+				program.Statements[0])
+		}
+
+		if tt.expectedStatement == nil {
+			if stmt.InitializeStatement != nil {
+				t.Fatalf("stmt.InitializeStatement is not nil, got=%T",
+					stmt.InitializeStatement)
+			}
+		} else if stmt.InitializeStatement == nil {
+			t.Fatalf("stmt.InitializeStatement is nil, expected=%T",
+				tt.expectedStatement)
+		} else {
+			if fmt.Sprintf("%T", stmt.InitializeStatement) != fmt.Sprintf("%T", tt.expectedStatement) {
+				t.Fatalf("stmt.InitializeStatement is not %T, got=%T",
+					tt.expectedStatement, stmt.InitializeStatement)
+			}
+
+			actual := stmt.InitializeStatement.String()
+			if actual != tt.expectedStatement.String() {
+				t.Fatalf("stmt.InitializeStatement is not `%s`, got=`%s`",
+					tt.expectedStatement.String(), actual)
+			}
+		}
+	}
+}
+
+func TestForLoopStatementContinueExpressionParsing(t *testing.T) {
+	tests := []struct {
+		input              string
+		expectedExpression ast.Expression
+	}{
+		{
+			`x < 10`,
+			&ast.InfixExpression{
+				Left:     &ast.Identifier{Value: "x"},
+				Operator: "<",
+				Right:    &ast.IntegerLiteral{Token: token.Token{Literal: "10"}},
+			},
+		},
+		{
+			``,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		forInput := fmt.Sprintf("for (let x = 0; %s; x = x + 1){}", tt.input)
+		program := parseAndCheckErrors(forInput, t)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ForLoopStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ForLoopStatement. got=%T",
+				program.Statements[0])
+		}
+
+		if tt.expectedExpression == nil {
+			if stmt.ContinueExpression != nil {
+				t.Fatalf("stmt.ContinueExpression is not nil, got=%T",
+					stmt.ContinueExpression)
+			}
+		} else if stmt.ContinueExpression == nil {
+			t.Fatalf("stmt.ContinueExpression is nil, expected=%T",
+				tt.expectedExpression)
+		} else {
+			if fmt.Sprintf("%T", stmt.ContinueExpression) != fmt.Sprintf("%T", tt.expectedExpression) {
+				t.Fatalf("stmt.ContinueExpression is not %T, got=%T",
+					tt.expectedExpression, stmt.ContinueExpression)
+			}
+
+			actual := stmt.ContinueExpression.String()
+			if actual != tt.expectedExpression.String() {
+				t.Fatalf("stmt.ContinueExpression is not `%s`, got=`%s`",
+					tt.expectedExpression.String(), actual)
+			}
+		}
+	}
+}
+
+func TestForLoopStatementStepExpressionParsing(t *testing.T) {
+	tests := []struct {
+		input              string
+		expectedExpression ast.Expression
+	}{
+		{
+			`x = x + 1`,
+			&ast.InfixExpression{
+				Left:     &ast.Identifier{Value: "x"},
+				Operator: "=",
+				Right: &ast.InfixExpression{
+					Left:     &ast.Identifier{Value: "x"},
+					Operator: "+",
+					Right:    &ast.IntegerLiteral{Token: token.Token{Literal: "1"}},
+				},
+			},
+		},
+		{
+			``,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		forInput := fmt.Sprintf("for (let x = 0; x < 10; %s){}", tt.input)
+		program := parseAndCheckErrors(forInput, t)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ForLoopStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ForLoopStatement. got=%T",
+				program.Statements[0])
+		}
+
+		if tt.expectedExpression == nil {
+			if stmt.StepExpression != nil {
+				t.Fatalf("stmt.StepExpression is not nil, got=%T",
+					stmt.StepExpression)
+			}
+		} else if stmt.StepExpression == nil {
+			t.Fatalf("stmt.StepExpression is nil, expected=%T",
+				tt.expectedExpression)
+		} else {
+			if fmt.Sprintf("%T", stmt.StepExpression) != fmt.Sprintf("%T", tt.expectedExpression) {
+				t.Fatalf("stmt.StepExpression is not %T, got=%T",
+					tt.expectedExpression, stmt.StepExpression)
+			}
+
+			actual := stmt.StepExpression.String()
+			if actual != tt.expectedExpression.String() {
+				t.Fatalf("stmt.StepExpression is not `%s`, got=`%s`",
+					tt.expectedExpression.String(), actual)
+			}
+		}
+	}
 }
 
 func testIntegerLiteral(t *testing.T, exp ast.Expression, value int64) bool {
@@ -800,18 +986,18 @@ func parseAndCheckErrors(input string, t *testing.T) *ast.Program {
 	l := lexer.New(input)
 	p := New(l)
 	program := p.ParseProgram()
-	checkParseErrors(p, t)
+	checkParseErrors(p, input, t)
 
 	return program
 }
 
-func checkParseErrors(p *Parser, t *testing.T) {
+func checkParseErrors(p *Parser, input string, t *testing.T) {
 	errors := p.Errors()
 	if len(errors) == 0 {
 		return
 	}
 
-	t.Errorf("parser has %d errors", len(errors))
+	t.Errorf("parser has %d errors parsing %s", len(errors), input)
 	for _, msg := range errors {
 		t.Errorf("parser error: %q", msg)
 	}

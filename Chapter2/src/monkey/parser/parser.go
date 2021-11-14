@@ -168,26 +168,32 @@ func (p *Parser) parseForLoopStatement() *ast.ForLoopStatement {
 	}
 	p.nextToken()
 
-	statement.InitializeStatement = p.parseLetStatement()
+	if !p.curTokenIs(token.SEMICOLON) {
+		statement.InitializeStatement = p.parseStatement()
+
+		if !p.curTokenIs(token.SEMICOLON) {
+			msg := fmt.Sprintf("no semicolon after for loop initialization, found %s.", p.curToken.Type)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+	}
+	p.nextToken()
 
 	if !p.curTokenIs(token.SEMICOLON) {
-		msg := fmt.Sprintf("no semicolon after for loop initialization, found %s.", p.curToken.Type)
-		p.errors = append(p.errors, msg)
-		return nil
+		statement.ContinueExpression = p.parseExpression(LOWEST)
+
+		if !p.expectPeek(token.SEMICOLON) {
+			return nil
+		}
 	}
 	p.nextToken()
 
-	statement.ContinueExpression = p.parseExpression(LOWEST)
+	if !p.curTokenIs(token.RPAREN) {
+		statement.StepExpression = p.parseExpression(LOWEST)
 
-	if !p.expectPeek(token.SEMICOLON) {
-		return nil
-	}
-	p.nextToken()
-
-	statement.StepStatement = p.parseExpression(LOWEST)
-
-	if !p.expectPeek(token.RPAREN) {
-		return nil
+		if !p.expectPeek(token.RPAREN) {
+			return nil
+		}
 	}
 
 	if !p.expectPeek(token.LBRACE) {
