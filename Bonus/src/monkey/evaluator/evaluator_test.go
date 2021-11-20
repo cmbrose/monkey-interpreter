@@ -217,6 +217,7 @@ func TestLetStatements(t *testing.T) {
 		{"let a = 5; let b = a; b;", 5},
 		{"let a = 5; let b = a; let c = a + b + 5; c;", 15},
 		{"let a = 5; fn() { let a = 4; }(); a;", 5},
+		{"let a = 5; if (true) { let a = 4; } a;", 5},
 		{
 			`
 			let a = 5; 
