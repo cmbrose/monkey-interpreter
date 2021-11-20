@@ -194,11 +194,6 @@ type IfExpression struct {
 	Alternative *BlockStatement
 }
 
-type IfClause struct {
-	Condition   Expression
-	Consequence *BlockStatement
-}
-
 func (ie *IfExpression) expressionNode()      {}
 func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *IfExpression) String() string {
@@ -217,6 +212,11 @@ func (ie *IfExpression) String() string {
 	}
 
 	return out.String()
+}
+
+type IfClause struct {
+	Condition   Expression
+	Consequence *BlockStatement
 }
 
 func (ic *IfClause) String() string {
