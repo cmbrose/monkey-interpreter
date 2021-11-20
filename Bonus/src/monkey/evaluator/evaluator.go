@@ -39,6 +39,12 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 		return &object.ReturnValue{Value: value}
 
+	case *ast.ForLoopStatement:
+		value := evalForLoopStatement(node, env)
+		if isError(value) {
+			return value
+		}
+
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, env)
 
@@ -116,6 +122,53 @@ func evalBlockStatement(block *ast.BlockStatement, env *object.Environment) obje
 	}
 
 	return result
+}
+
+func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) object.Object {
+	loopEnv := object.NewEnclosedEnvironment(env)
+
+	if stmt.InitializeStatement != nil {
+		initializeResult := Eval(stmt.InitializeStatement, loopEnv)
+		if isError(initializeResult) {
+			return initializeResult
+		}
+	}
+
+	var continueResult object.Object = TRUE
+
+	if stmt.ContinueExpression != nil {
+		continueResult := Eval(stmt.ContinueExpression, loopEnv)
+		if isError(continueResult) {
+			return continueResult
+		}
+	}
+
+	for isTruthy(continueResult) {
+		result := Eval(stmt.Body, loopEnv)
+
+		if result != nil {
+			rt := result.Type()
+			if rt == object.RETURN_VALUE_OBJ || rt == object.ERROR_OBJ {
+				return result
+			}
+		}
+
+		if stmt.ContinueExpression != nil {
+			stepResult := Eval(stmt.StepExpression, loopEnv)
+			if isError(stepResult) {
+				return stepResult
+			}
+		}
+
+		if stmt.ContinueExpression != nil {
+			continueResult = Eval(stmt.ContinueExpression, loopEnv)
+			if isError(continueResult) {
+				return continueResult
+			}
+		}
+	}
+
+	return NULL
 }
 
 func evalIfExpression(expr *ast.IfExpression, env *object.Environment) object.Object {

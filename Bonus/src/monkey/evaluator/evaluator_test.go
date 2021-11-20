@@ -188,6 +188,14 @@ func TestErrorHandling(t *testing.T) {
 			"let a = 5; 5 = 4;",
 			"Left side of assign expression must be a variable",
 		},
+		{
+			"for (i = 0; i < 10; i = i + 1) {}",
+			"identifier not found: i",
+		},
+		{
+			"x = 0;",
+			"identifier not found: x",
+		},
 	}
 
 	for _, tt := range tests {
@@ -307,6 +315,94 @@ func TestClosures(t *testing.T) {
 	addTwo(2);`
 
 	testIntegerObject(t, testEval(input), 4)
+}
+
+func TestForLoopStatement(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected interface{}
+	}{
+		{
+			`
+			for (let i = 0; i < 10; i = i + 1) {
+				i
+			}
+			`,
+			nil,
+		},
+		{
+			`
+			let x = 0; 
+			for (let i = 0; i < 10; i = i + 1) { 
+				x = x + 1; 
+			} 
+			x;
+			`,
+			10,
+		},
+		{
+			`
+			let i = 0; 
+			for (; i < 10; i = i + 1) { } 
+			i;
+			`,
+			10,
+		},
+		{
+			`
+			let x = 0; 
+			let i = 0; 
+			for (i = 5; i < 10; i = i + 1) { 
+				x = x + 1; 
+			} 
+			x;
+			`,
+			5,
+		},
+		{
+			`
+			let i = 0; 
+			for (i = 0; i < 10;) { 
+				i = i + 1 
+			} 
+			i;
+			`,
+			10,
+		},
+		{
+			`
+			let x = 0; 
+			let i = 5; 
+			for (let i = 0; i < 10; i = i + 1) { 
+				x = x + 1; 
+			} 
+			x;
+			`,
+			10,
+		},
+		{
+			`
+			let x = 0;
+			for (let i = 0; i < 10; i = i + 1) { 
+				for (let i = 0; i < 10; i = i + 1) { 
+					x = x + 1; 
+				} 
+			} 
+			x;
+			`,
+			100,
+		},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEval(tt.input)
+		integer, ok := tt.expected.(int)
+		if ok {
+			testIntegerObject(t, evaluated, int64(integer))
+		} else if evaluated != nil {
+			t.Fatalf("Expected nil but was %t (%+v)", evaluated, evaluated)
+		}
+	}
 }
 
 func testEval(input string) object.Object {

@@ -31,7 +31,7 @@ func (e *Environment) Get(name string) (Object, bool) {
 // Creates a new variable, shadowing a variable in the outer scope if applicable.
 func (e *Environment) Add(name string, val Object) Object {
 	if _, ok := e.store[name]; ok {
-		return &Error{fmt.Sprintf("Variable '%s' already exists", name)}
+		return &Error{fmt.Sprintf("identifier already exists: %s", name)}
 	}
 
 	return e.AddOrSet(name, val)
@@ -45,7 +45,7 @@ func (e *Environment) Set(name string, val Object) Object {
 			return e.outer.Set(name, val)
 		}
 
-		return &Error{fmt.Sprintf("Variable '%s' does not exist", name)}
+		return &Error{fmt.Sprintf("identifier not found: %s", name)}
 	}
 
 	return e.AddOrSet(name, val)
