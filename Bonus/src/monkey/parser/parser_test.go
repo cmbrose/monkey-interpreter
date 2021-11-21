@@ -421,6 +421,15 @@ func TestIfExpression(t *testing.T) {
 			},
 			"w",
 		},
+		{
+			"if (x < y) x else if (y < z) y else if (z < w) z else w",
+			[]expectedClause{
+				{"(x < y)", "x"},
+				{"(y < z)", "y"},
+				{"(z < w)", "z"},
+			},
+			"w",
+		},
 	}
 
 	for _, tt := range tests {
@@ -837,6 +846,68 @@ func TestForLoopStatementStepExpressionParsing(t *testing.T) {
 				t.Fatalf("stmt.StepExpression is not `%s`, got=`%s`",
 					tt.expectedExpression.String(), actual)
 			}
+		}
+	}
+}
+
+func TestForLoopStatementBodyParsing(t *testing.T) {
+	tests := []struct {
+		input             string
+		expectedStatement ast.Expression
+	}{
+		{
+			`{ x = x + 1 }`,
+			&ast.InfixExpression{
+				Left:     &ast.Identifier{Value: "x"},
+				Operator: "=",
+				Right: &ast.InfixExpression{
+					Left:     &ast.Identifier{Value: "x"},
+					Operator: "+",
+					Right:    &ast.IntegerLiteral{Token: token.Token{Literal: "1"}},
+				},
+			},
+		},
+		{
+			`x`,
+			&ast.Identifier{Value: "x"},
+		},
+	}
+
+	for _, tt := range tests {
+		forInput := fmt.Sprintf("for (let x = 0; x < 10;) %s", tt.input)
+		program := parseAndCheckErrors(forInput, t)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ForLoopStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ForLoopStatement. got=%T",
+				program.Statements[0])
+		}
+
+		if len(stmt.Body.Statements) != 1 {
+			t.Fatalf("stmt.Body does not contain %d statements. got=%d\n",
+				1, len(stmt.Body.Statements))
+		}
+
+		expr, ok := stmt.Body.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("stmt.Body.Statements[0] is not ast.ExpressionStatement. got=%T",
+				stmt.Body.Statements[0])
+		}
+
+		if fmt.Sprintf("%T", expr.Expression) != fmt.Sprintf("%T", tt.expectedStatement) {
+			t.Fatalf("stmt.Body.Statements[0] is not %T, got=%T",
+				tt.expectedStatement, expr.Expression)
+		}
+
+		actual := expr.Expression.String()
+		if actual != tt.expectedStatement.String() {
+			t.Fatalf("stmt.StepExpression is not `%s`, got=`%s`",
+				tt.expectedStatement.String(), actual)
 		}
 	}
 }

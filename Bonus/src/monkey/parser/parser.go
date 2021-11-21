@@ -196,11 +196,12 @@ func (p *Parser) parseForLoopStatement() *ast.ForLoopStatement {
 		}
 	}
 
-	if !p.expectPeek(token.LBRACE) {
-		return nil
+	p.nextToken()
+	if p.curTokenIs(token.LBRACE) {
+		statement.Body = p.parseBlockStatement()
+	} else {
+		statement.Body = p.parseSingleStatementBlockStatement()
 	}
-
-	statement.Body = p.parseBlockStatement()
 
 	return statement
 }
@@ -327,11 +328,12 @@ func (p *Parser) parseIfExpression() ast.Expression {
 
 			clauses = append(clauses, clause)
 		} else {
-			if !p.expectPeek(token.LBRACE) {
-				return nil
+			p.nextToken()
+			if p.curTokenIs(token.LBRACE) {
+				expression.Alternative = p.parseBlockStatement()
+			} else {
+				expression.Alternative = p.parseSingleStatementBlockStatement()
 			}
-
-			expression.Alternative = p.parseBlockStatement()
 		}
 	}
 
@@ -354,11 +356,12 @@ func (p *Parser) parseIfClause() *ast.IfClause {
 		return nil
 	}
 
-	if !p.expectPeek(token.LBRACE) {
-		return nil
+	p.nextToken()
+	if p.curTokenIs(token.LBRACE) {
+		clause.Consequence = p.parseBlockStatement()
+	} else {
+		clause.Consequence = p.parseSingleStatementBlockStatement()
 	}
-
-	clause.Consequence = p.parseBlockStatement()
 
 	return clause
 }
@@ -376,6 +379,15 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		}
 		p.nextToken()
 	}
+
+	return block
+}
+
+func (p *Parser) parseSingleStatementBlockStatement() *ast.BlockStatement {
+	block := &ast.BlockStatement{Token: p.curToken}
+
+	expression := p.parseStatement()
+	block.Statements = []ast.Statement{expression}
 
 	return block
 }
