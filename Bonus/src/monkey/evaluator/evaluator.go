@@ -29,7 +29,10 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 			return value
 		}
 
-		env.Add(node.Name.Value, value)
+		res := env.Add(node.Name.Value, value)
+		if isError(res) {
+			return res
+		}
 
 	case *ast.ReturnStatement:
 		value := Eval(node.ReturnValue, env)
@@ -121,7 +124,11 @@ func evalBlockStatement(block *ast.BlockStatement, env *object.Environment) obje
 		}
 	}
 
-	return result
+	if result != nil {
+		return result
+	}
+
+	return NULL
 }
 
 func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) object.Object {
@@ -180,12 +187,14 @@ func evalIfExpression(expr *ast.IfExpression, env *object.Environment) object.Ob
 		}
 
 		if isTruthy(result) {
-			return Eval(clause.Consequence, env)
+			blockEnv := object.NewEnclosedEnvironment(env)
+			return Eval(clause.Consequence, blockEnv)
 		}
 	}
 
 	if expr.Alternative != nil {
-		return Eval(expr.Alternative, env)
+		blockEnv := object.NewEnclosedEnvironment(env)
+		return Eval(expr.Alternative, blockEnv)
 	} else {
 		return NULL
 	}
@@ -333,6 +342,11 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 		return newError(fmt.Sprintf("not a function: %s", fn.Type()))
 	}
 
+	if len(function.Parameters) != len(args) {
+		return newError(fmt.Sprintf("function called with incorrect number of arguments: expected=%d, got=%d.",
+			len(function.Parameters), len(args)))
+	}
+
 	extendedEnv := extendFunctionEnv(function, args)
 	evaluated := Eval(function.Body, extendedEnv)
 	return unwrapReturnValue(evaluated)
@@ -342,7 +356,7 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	env := object.NewEnclosedEnvironment(fn.Env)
 
 	for paramIdx, param := range fn.Parameters {
-		env.AddOrSet(param.Value, args[paramIdx])
+		env.Add(param.Value, args[paramIdx])
 	}
 
 	return env

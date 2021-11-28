@@ -196,6 +196,30 @@ func TestErrorHandling(t *testing.T) {
 			"x = 0;",
 			"identifier not found: x",
 		},
+		{
+			"let x = 0; let x = 0;",
+			"identifier already exists: x",
+		},
+		{
+			"fn(x) { let x = 0; }(1)",
+			"identifier already exists: x",
+		},
+		{
+			"fn(x) { }()",
+			"function called with incorrect number of arguments: expected=1, got=0.",
+		},
+		{
+			"fn(x, y) { }(1)",
+			"function called with incorrect number of arguments: expected=2, got=1.",
+		},
+		{
+			"fn() { }(1)",
+			"function called with incorrect number of arguments: expected=0, got=1.",
+		},
+		{
+			"fn(x) { }(1, 2)",
+			"function called with incorrect number of arguments: expected=1, got=2.",
+		},
 	}
 
 	for _, tt := range tests {
@@ -228,11 +252,11 @@ func TestLetStatements(t *testing.T) {
 		{"let a = 5; if (true) { let a = 4; } a;", 5},
 		{
 			`
-			let a = 5; 
-			let b = fn() { 
-				let a = 4; 
-				fn() { 
-					a = 5; 
+			let a = 5;
+			let b = fn() {
+				let a = 4;
+				fn() {
+					a = 5;
 				}();
 				a;
 			}();
