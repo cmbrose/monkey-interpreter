@@ -11,9 +11,10 @@ const (
 	ILLEGAL = "ILLEGAL"
 	EOF     = "EOF"
 
-	// Identifiers and literals
-	IDENT = "IDENT" // variable name
-	INT   = "INT"   // Integer
+	// Values
+	IDENT  = "IDENT"  // variable name
+	INT    = "INT"    // Integer
+	STRING = "STRING" // String
 
 	// Operators
 	ASSIGN   = "="

@@ -59,6 +59,14 @@ func TestEvalBooleanExpression(t *testing.T) {
 		{"(1 < 2) == false", false},
 		{"(1 > 2) == true", false},
 		{"(1 > 2) == false", true},
+		{`"a" == "a"`, true},
+		{`"a" == "b"`, false},
+		{`"a" != "a"`, false},
+		{`"a" != "b"`, true},
+		{`"a" < "b"`, true},
+		{`"a" < "a"`, false},
+		{`"a" > "b"`, false},
+		{`"a" > "a"`, false},
 	}
 
 	for _, tt := range tests {
@@ -247,6 +255,10 @@ func TestErrorHandling(t *testing.T) {
 		{
 			"let x = for (;;) {}",
 			"cannot assign empty value to variable",
+		},
+		{
+			`"Hello" - "World"`,
+			"unknown operator: STRING - STRING",
 		},
 	}
 
@@ -454,6 +466,35 @@ func TestForLoopStatement(t *testing.T) {
 		} else if evaluated != nil {
 			t.Fatalf("Expected nil but was %t (%+v)", evaluated, evaluated)
 		}
+	}
+}
+func TestStringLiteral(t *testing.T) {
+	input := `"Hello World!"`
+
+	evaluated := testEval(input)
+
+	str, ok := evaluated.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", evaluated, evaluated)
+	}
+
+	if str.Value != "Hello World!" {
+		t.Errorf("String has wrong value. got=%q", str.Value)
+	}
+}
+
+func TestStringConcatenation(t *testing.T) {
+	input := `"Hello" + " " + "World!"`
+
+	evaluated := testEval(input)
+
+	str, ok := evaluated.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", evaluated, evaluated)
+	}
+
+	if str.Value != "Hello World!" {
+		t.Errorf("String has wrong value. got=%q", str.Value)
 	}
 }
 

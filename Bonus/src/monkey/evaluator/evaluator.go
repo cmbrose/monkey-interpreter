@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"monkey/ast"
 	"monkey/object"
+	"strings"
 )
 
 var (
@@ -83,6 +84,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 	case *ast.Boolean:
 		return nativeBoolToBooleanObject(node.Value)
+
+	case *ast.StringLiteral:
+		return &object.String{Value: node.Value}
 
 	case *ast.FunctionLiteral:
 		params := node.Parameters
@@ -259,6 +263,9 @@ func evalInfixExpression(node *ast.InfixExpression, env *object.Environment) obj
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
 
+	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
+		return evalStringInfixExpression(operator, left, right)
+
 	case left.Type() != right.Type():
 		return newError(fmt.Sprintf("type mismatch: %s %s %s",
 			left.Type(), operator, right.Type()))
@@ -306,6 +313,41 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 		return nativeBoolToBooleanObject(leftVal == rightVal)
 	case "!=":
 		return nativeBoolToBooleanObject(leftVal != rightVal)
+
+	default:
+		return newError(fmt.Sprintf("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type()))
+	}
+}
+
+func evalStringInfixExpression(operator string, left, right object.Object) object.Object {
+	leftStr, leftOk := left.(*object.String)
+	rightStr, rightOk := right.(*object.String)
+
+	if !leftOk || !rightOk {
+		return newError(fmt.Sprintf("type mismatch: %s %s %s",
+			left.Type(), operator, right.Type()))
+	}
+
+	leftVal := leftStr.Value
+	rightVal := rightStr.Value
+
+	comp := strings.Compare(leftVal, rightVal)
+
+	switch operator {
+	// Concatenation
+	case "+":
+		return &object.String{Value: leftVal + rightVal}
+
+	// Comparison
+	case "<":
+		return nativeBoolToBooleanObject(comp < 0)
+	case ">":
+		return nativeBoolToBooleanObject(comp > 0)
+	case "==":
+		return nativeBoolToBooleanObject(comp == 0)
+	case "!=":
+		return nativeBoolToBooleanObject(comp != 0)
 
 	default:
 		return newError(fmt.Sprintf("unknown operator: %s %s %s",

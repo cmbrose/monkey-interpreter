@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"monkey/token"
+	"strings"
 )
 
 type Lexer struct {
@@ -31,18 +32,22 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.ASSIGN, l.ch)
 		}
+
 	case ';':
 		tok = newToken(token.SEMICOLON, l.ch)
-	case '(':
-		tok = newToken(token.LPAREN, l.ch)
-	case ')':
-		tok = newToken(token.RPAREN, l.ch)
+
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
+
 	case '+':
 		tok = newToken(token.PLUS, l.ch)
 	case '-':
 		tok = newToken(token.MINUS, l.ch)
+	case '/':
+		tok = newToken(token.SLASH, l.ch)
+	case '*':
+		tok = newToken(token.ASTERISK, l.ch)
+
 	case '!':
 		if l.peekChar() == '=' {
 			ch := l.ch
@@ -51,21 +56,35 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.BANG, l.ch)
 		}
-	case '/':
-		tok = newToken(token.SLASH, l.ch)
-	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
+
 	case '<':
 		tok = newToken(token.LT, l.ch)
 	case '>':
 		tok = newToken(token.GT, l.ch)
+
 	case '{':
 		tok = newToken(token.LBRACE, l.ch)
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
+
+	case '(':
+		tok = newToken(token.LPAREN, l.ch)
+	case ')':
+		tok = newToken(token.RPAREN, l.ch)
+
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
+
+	case '"':
+		str, ok := l.readString()
+		if !ok {
+			return newToken(token.ILLEGAL, l.ch)
+		}
+
+		tok.Type = token.STRING
+		tok.Literal = str
+
 	default:
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifer()
@@ -131,6 +150,28 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
+func (l *Lexer) readString() (string, bool) {
+	position := l.position + 1
+
+	for {
+		l.readChar()
+
+		if l.ch == '\\' {
+			l.readChar()
+		} else if l.ch == '"' {
+			break
+		} else if l.ch == 0 {
+			return "", false
+		}
+	}
+
+	str := l.input[position:l.position]
+
+	unescaped := unescapeString(str)
+
+	return unescaped, true
+}
+
 func (l *Lexer) skipWhitespace() {
 	for isWhitespace(l.ch) {
 		l.readChar()
@@ -151,4 +192,14 @@ func isWhitespace(ch byte) bool {
 
 func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func unescapeString(str string) string {
+	str = strings.ReplaceAll(str, "\\t", "\t")
+	str = strings.ReplaceAll(str, "\\n", "\n")
+	str = strings.ReplaceAll(str, "\\r", "\r")
+	str = strings.ReplaceAll(str, "\\\"", "\"")
+	str = strings.ReplaceAll(str, "\\\\", "\\")
+
+	return str
 }
