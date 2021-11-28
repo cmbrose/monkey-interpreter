@@ -53,6 +53,10 @@ func (e *Environment) Set(name string, val Object) Object {
 
 // Creates or updates a variable in the immediate scope, shadowing a variable in the outer scope if applicable.
 func (e *Environment) AddOrSet(name string, val Object) Object {
+	if val == nil {
+		return &Error{"cannot assign empty value to variable"}
+	}
+
 	e.store[name] = val
 	return val
 }

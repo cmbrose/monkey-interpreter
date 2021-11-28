@@ -124,11 +124,7 @@ func evalBlockStatement(block *ast.BlockStatement, env *object.Environment) obje
 		}
 	}
 
-	if result != nil {
-		return result
-	}
-
-	return NULL
+	return result
 }
 
 func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) object.Object {

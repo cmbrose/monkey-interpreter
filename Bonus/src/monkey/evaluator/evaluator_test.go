@@ -220,6 +220,18 @@ func TestErrorHandling(t *testing.T) {
 			"fn(x) { }(1, 2)",
 			"function called with incorrect number of arguments: expected=1, got=2.",
 		},
+		{
+			"let x = fn() { }()",
+			"cannot assign empty value to variable",
+		},
+		{
+			"let x = if (true) { }",
+			"cannot assign empty value to variable",
+		},
+		{
+			"let x = 5; x = if (true) { }",
+			"cannot assign empty value to variable",
+		},
 	}
 
 	for _, tt := range tests {
