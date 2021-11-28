@@ -156,7 +156,7 @@ func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) o
 			}
 		}
 
-		if stmt.ContinueExpression != nil {
+		if stmt.StepExpression != nil {
 			stepResult := Eval(stmt.StepExpression, loopEnv)
 			if isError(stepResult) {
 				return stepResult
@@ -171,7 +171,7 @@ func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) o
 		}
 	}
 
-	return NULL
+	return nil
 }
 
 func evalIfExpression(expr *ast.IfExpression, env *object.Environment) object.Object {

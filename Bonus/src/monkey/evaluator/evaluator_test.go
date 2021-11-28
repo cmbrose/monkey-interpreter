@@ -132,6 +132,18 @@ func TestReturnStatements(t *testing.T) {
 			}`,
 			10,
 		},
+		{
+			// This should terminate when i == 5.
+			// The i < 10 check avoids an infinite loop if the return doesn't work.
+			`
+			let i = 0; 
+			for (; i < 10; i = i + 1) { 
+				if (i == 5) { return 1; } 
+			}
+			i;
+			`,
+			5,
+		},
 	}
 
 	for _, tt := range tests {
@@ -230,6 +242,10 @@ func TestErrorHandling(t *testing.T) {
 		},
 		{
 			"let x = 5; x = if (true) { }",
+			"cannot assign empty value to variable",
+		},
+		{
+			"let x = for (;;) {}",
 			"cannot assign empty value to variable",
 		},
 	}
