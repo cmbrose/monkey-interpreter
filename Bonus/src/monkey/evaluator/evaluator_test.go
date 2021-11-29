@@ -226,19 +226,19 @@ func TestErrorHandling(t *testing.T) {
 		},
 		{
 			"fn(x) { }()",
-			"function called with incorrect number of arguments: expected=1, got=0.",
+			"wrong number of arguments: expected=1, got=0",
 		},
 		{
 			"fn(x, y) { }(1)",
-			"function called with incorrect number of arguments: expected=2, got=1.",
+			"wrong number of arguments: expected=2, got=1",
 		},
 		{
 			"fn() { }(1)",
-			"function called with incorrect number of arguments: expected=0, got=1.",
+			"wrong number of arguments: expected=0, got=1",
 		},
 		{
 			"fn(x) { }(1, 2)",
-			"function called with incorrect number of arguments: expected=1, got=2.",
+			"wrong number of arguments: expected=1, got=2",
 		},
 		{
 			"let x = fn() { }()",
@@ -265,17 +265,7 @@ func TestErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		evaluated := testEval(tt.input)
 
-		errObj, ok := evaluated.(*object.Error)
-		if !ok {
-			t.Errorf("no error object returned. got=%T(%+v)",
-				evaluated, evaluated)
-			continue
-		}
-
-		if errObj.Message != tt.expectedMessage {
-			t.Errorf("wrong error message. expected=%q, got=%q",
-				tt.expectedMessage, errObj.Message)
-		}
+		testErrorObject(t, evaluated, tt.expectedMessage)
 	}
 }
 
@@ -498,6 +488,30 @@ func TestStringConcatenation(t *testing.T) {
 	}
 }
 
+func TestBuiltinFunctions(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected interface{}
+	}{
+		{`len("")`, 0},
+		{`len("four")`, 4},
+		{`len("hello world")`, 11},
+		{`len(1)`, "argument to `len` not supported, got INTEGER"},
+		{`len("one", "two")`, "wrong number of arguments: expected=1, got=2"},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEval(tt.input)
+
+		switch expected := tt.expected.(type) {
+		case int:
+			testIntegerObject(t, evaluated, int64(expected))
+		case string:
+			testErrorObject(t, evaluated, expected)
+		}
+	}
+}
+
 func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -545,5 +559,21 @@ func testNullObject(t *testing.T, obj object.Object) bool {
 		t.Errorf("object is not NULL. got=%T (%+v)", obj, obj)
 		return false
 	}
+	return true
+}
+
+func testErrorObject(t *testing.T, obj object.Object, msg string) bool {
+	errObj, ok := obj.(*object.Error)
+	if !ok {
+		t.Errorf("object is not object.ErrorObject. got=%T(%+v)", obj, obj)
+		return false
+	}
+
+	if errObj.Message != msg {
+		t.Errorf("wrong error message. expected=%q, got=%q",
+			msg, errObj.Message)
+		return false
+	}
+
 	return true
 }

@@ -207,7 +207,7 @@ func evalPrefixExpression(operator string, right object.Object) object.Object {
 	case "-":
 		return evalMinusPrefixOperatorExpression(right)
 	default:
-		return newError(fmt.Sprintf("unknown operator: %s%s", operator, right.Type()))
+		return newError("unknown operator: %s%s", operator, right.Type())
 	}
 }
 
@@ -226,7 +226,7 @@ func evalBangOperatorExpression(right object.Object) object.Object {
 
 func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 	if right.Type() != object.INTEGER_OBJ {
-		return newError(fmt.Sprintf("unknown operator: -%s", right.Type()))
+		return newError("unknown operator: -%s", right.Type())
 	}
 
 	value := right.(*object.Integer).Value
@@ -236,17 +236,9 @@ func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 func evalInfixExpression(node *ast.InfixExpression, env *object.Environment) object.Object {
 	operator := node.Operator
 
+	// This needs to be tested first or left will resolve a value and not an identifier
 	if operator == "=" {
-		if ident, ok := node.Left.(*ast.Identifier); ok {
-			right := Eval(node.Right, env)
-			if isError(right) {
-				return right
-			}
-
-			return evalInfixAssignExpression(ident, right, env)
-		} else {
-			return newError("Left side of assign expression must be a variable")
-		}
+		return evalInfixAssignOperator(node, env)
 	}
 
 	left := Eval(node.Left, env)
@@ -267,8 +259,8 @@ func evalInfixExpression(node *ast.InfixExpression, env *object.Environment) obj
 		return evalStringInfixExpression(operator, left, right)
 
 	case left.Type() != right.Type():
-		return newError(fmt.Sprintf("type mismatch: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("type mismatch: %s %s %s",
+			left.Type(), operator, right.Type())
 
 	case operator == "==":
 		return nativeBoolToBooleanObject(left == right)
@@ -276,8 +268,21 @@ func evalInfixExpression(node *ast.InfixExpression, env *object.Environment) obj
 		return nativeBoolToBooleanObject(left != right)
 
 	default:
-		return newError(fmt.Sprintf("unknown operator: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
+	}
+}
+
+func evalInfixAssignOperator(node *ast.InfixExpression, env *object.Environment) object.Object {
+	if ident, ok := node.Left.(*ast.Identifier); ok {
+		right := Eval(node.Right, env)
+		if isError(right) {
+			return right
+		}
+
+		return evalInfixAssignExpression(ident, right, env)
+	} else {
+		return newError("Left side of assign expression must be a variable")
 	}
 }
 
@@ -286,8 +291,8 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 	rightInt, rightOk := right.(*object.Integer)
 
 	if !leftOk || !rightOk {
-		return newError(fmt.Sprintf("type mismatch: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("type mismatch: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 
 	leftVal := leftInt.Value
@@ -315,8 +320,8 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 		return nativeBoolToBooleanObject(leftVal != rightVal)
 
 	default:
-		return newError(fmt.Sprintf("unknown operator: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 }
 
@@ -325,8 +330,8 @@ func evalStringInfixExpression(operator string, left, right object.Object) objec
 	rightStr, rightOk := right.(*object.String)
 
 	if !leftOk || !rightOk {
-		return newError(fmt.Sprintf("type mismatch: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("type mismatch: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 
 	leftVal := leftStr.Value
@@ -350,8 +355,8 @@ func evalStringInfixExpression(operator string, left, right object.Object) objec
 		return nativeBoolToBooleanObject(comp != 0)
 
 	default:
-		return newError(fmt.Sprintf("unknown operator: %s %s %s",
-			left.Type(), operator, right.Type()))
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
 	}
 }
 
@@ -375,19 +380,22 @@ func evalExpressions(exps []ast.Expression, env *object.Environment) []object.Ob
 }
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
-	function, ok := fn.(*object.Function)
-	if !ok {
-		return newError(fmt.Sprintf("not a function: %s", fn.Type()))
-	}
+	switch fn := fn.(type) {
+	case *object.Function:
+		if len(fn.Parameters) != len(args) {
+			return wrongNumberOfArgumentsError(len(fn.Parameters), len(args))
+		}
 
-	if len(function.Parameters) != len(args) {
-		return newError(fmt.Sprintf("function called with incorrect number of arguments: expected=%d, got=%d.",
-			len(function.Parameters), len(args)))
-	}
+		extendedEnv := extendFunctionEnv(fn, args)
+		evaluated := Eval(fn.Body, extendedEnv)
+		return unwrapReturnValue(evaluated)
 
-	extendedEnv := extendFunctionEnv(function, args)
-	evaluated := Eval(function.Body, extendedEnv)
-	return unwrapReturnValue(evaluated)
+	case *object.Builtin:
+		return fn.Fn(args...)
+
+	default:
+		return newError("not a function: %s", fn.Type())
+	}
 }
 
 func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Environment {
@@ -412,11 +420,15 @@ func evalIdentifier(
 	node *ast.Identifier,
 	env *object.Environment,
 ) object.Object {
-	val, ok := env.Get(node.Value)
-	if !ok {
-		return newError("identifier not found: " + node.Value)
+	if val, ok := env.Get(node.Value); ok {
+		return val
 	}
-	return val
+
+	if builtin, ok := builtins[node.Value]; ok {
+		return builtin
+	}
+
+	return newError("identifier not found: " + node.Value)
 }
 
 func nativeBoolToBooleanObject(input bool) *object.Boolean {
@@ -430,8 +442,12 @@ func nativeIntToIntegerObject(value int64) *object.Integer {
 	return &object.Integer{Value: value}
 }
 
-func newError(message string) *object.Error {
-	return &object.Error{Message: message}
+func newError(message string, args ...interface{}) *object.Error {
+	return &object.Error{Message: fmt.Sprintf(message, args...)}
+}
+
+func wrongNumberOfArgumentsError(expected, actual int) *object.Error {
+	return newError("wrong number of arguments: expected=%d, got=%d", expected, actual)
 }
 
 func isTruthy(obj object.Object) bool {
