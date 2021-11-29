@@ -1,7 +1,6 @@
 package evaluator
 
 import (
-	"fmt"
 	"monkey/ast"
 	"monkey/object"
 	"strings"
@@ -76,6 +75,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 		return applyFunction(function, args)
 
+	case *ast.IndexExpression:
+		return evalIndexExpression(node.Left, node.Index, env)
+
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
 
@@ -87,6 +89,14 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 	case *ast.StringLiteral:
 		return &object.String{Value: node.Value}
+
+	case *ast.ArrayLiteral:
+		elements := evalExpressions(node.Elements, env)
+		if len(elements) == 1 && isError(elements[0]) {
+			return elements[0]
+		}
+
+		return &object.Array{Elements: elements}
 
 	case *ast.FunctionLiteral:
 		params := node.Parameters
@@ -416,6 +426,51 @@ func unwrapReturnValue(obj object.Object) object.Object {
 	return obj
 }
 
+func evalIndexExpression(leftExp, indexExp ast.Expression, env *object.Environment) object.Object {
+	leftObj := Eval(leftExp, env)
+	if isError(leftObj) {
+		return leftObj
+	}
+
+	switch leftObj.Type() {
+	case object.ARRAY_OBJ:
+		return evalArrayIndexExpression(leftObj, indexExp, env)
+	default:
+		return newError("type does not support indexing: %s", leftObj.Type())
+	}
+}
+
+func evalArrayIndexExpression(arrayObj object.Object, indexExp ast.Expression, env *object.Environment) object.Object {
+	array, ok := arrayObj.(*object.Array)
+	if !ok {
+		panic("Array object was not an Array type")
+	}
+
+	indexObj := Eval(indexExp, env)
+	if isError(indexObj) {
+		return indexObj
+	}
+
+	if indexObj.Type() != object.INTEGER_OBJ {
+		return newError("array does not support indexing from type: %s", indexObj.Type())
+	}
+
+	index, ok := indexObj.(*object.Integer)
+	if !ok {
+		panic("Integer object was not an Integer type")
+	}
+
+	if index.Value < 0 {
+		return newError("array index must be non-negative: %d", index.Value)
+	}
+
+	if index.Value >= int64(len(array.Elements)) {
+		return newError("index outside array bounds: %d", index.Value)
+	}
+
+	return array.Elements[index.Value]
+}
+
 func evalIdentifier(
 	node *ast.Identifier,
 	env *object.Environment,
@@ -440,14 +495,6 @@ func nativeBoolToBooleanObject(input bool) *object.Boolean {
 
 func nativeIntToIntegerObject(value int64) *object.Integer {
 	return &object.Integer{Value: value}
-}
-
-func newError(message string, args ...interface{}) *object.Error {
-	return &object.Error{Message: fmt.Sprintf(message, args...)}
-}
-
-func wrongNumberOfArgumentsError(expected, actual int) *object.Error {
-	return newError("wrong number of arguments: expected=%d, got=%d", expected, actual)
 }
 
 func isTruthy(obj object.Object) bool {

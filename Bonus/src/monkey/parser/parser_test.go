@@ -70,15 +70,9 @@ func TestIdentifier(t *testing.T) {
 
 	program := parseAndCheckErrors(input, t)
 
-	if len(program.Statements) != 1 {
-		t.Fatalf("program does not have the expected number of statements. got=%d",
-			len(program.Statements))
-	}
-
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	stmt, ok := extractSingleExpressionStatement(t, program)
 	if !ok {
-		t.Fatalf("program.Statements[0] is not *ast.ExpressionStatement, got=%T",
-			program.Statements[0])
+		return
 	}
 
 	if !testIdentifier(t, stmt.Expression, "foobar") {
@@ -91,15 +85,9 @@ func TestIntegerLiteralExpression(t *testing.T) {
 
 	program := parseAndCheckErrors(input, t)
 
-	if len(program.Statements) != 1 {
-		t.Fatalf("program does not have the expected number of statements. got=%d",
-			len(program.Statements))
-	}
-
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	stmt, ok := extractSingleExpressionStatement(t, program)
 	if !ok {
-		t.Fatalf("program.Statements[0] is not *ast.ExpressionStatement, got=%T",
-			program.Statements[0])
+		return
 	}
 
 	intLit, ok := stmt.Expression.(*ast.IntegerLiteral)
@@ -118,15 +106,9 @@ func TestStringLiteralExpression(t *testing.T) {
 	input := `"hello world";`
 	program := parseAndCheckErrors(input, t)
 
-	if len(program.Statements) != 1 {
-		t.Fatalf("program does not have the expected number of statements. got=%d",
-			len(program.Statements))
-	}
-
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	stmt, ok := extractSingleExpressionStatement(t, program)
 	if !ok {
-		t.Fatalf("program.Statements[0] is not *ast.ExpressionStatement, got=%T",
-			program.Statements[0])
+		return
 	}
 
 	literal, ok := stmt.Expression.(*ast.StringLiteral)
@@ -137,6 +119,29 @@ func TestStringLiteralExpression(t *testing.T) {
 	if literal.Value != "hello world" {
 		t.Errorf("literal.Value not %q. got=%q", "hello world", literal.Value)
 	}
+}
+
+func TestParsingArrayLiterals(t *testing.T) {
+	input := "[1, 2 * 2, 3 + 3]"
+	program := parseAndCheckErrors(input, t)
+
+	stmt, ok := extractSingleExpressionStatement(t, program)
+	if !ok {
+		return
+	}
+
+	array, ok := stmt.Expression.(*ast.ArrayLiteral)
+	if !ok {
+		t.Fatalf("exp not ast.ArrayLiteral. got=%T", stmt.Expression)
+	}
+
+	if len(array.Elements) != 3 {
+		t.Fatalf("len(array.Elements) not 3. got=%d", len(array.Elements))
+	}
+
+	testIntegerLiteral(t, array.Elements[0], 1)
+	testInfixExpression(t, array.Elements[1], 2, "*", 2)
+	testInfixExpression(t, array.Elements[2], 3, "+", 3)
 }
 
 func TestParsingPrefixExpressions(t *testing.T) {
@@ -154,15 +159,9 @@ func TestParsingPrefixExpressions(t *testing.T) {
 	for _, tt := range prefixTests {
 		program := parseAndCheckErrors(tt.input, t)
 
-		if len(program.Statements) != 1 {
-			t.Fatalf("program does not have the expected number of statements. got=%d",
-				len(program.Statements))
-		}
-
-		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		stmt, ok := extractSingleExpressionStatement(t, program)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not *ast.ExpressionStatement, got=%T",
-				program.Statements[0])
+			return
 		}
 
 		exp, ok := stmt.Expression.(*ast.PrefixExpression)
@@ -203,20 +202,37 @@ func TestParsingInfixExpressions(t *testing.T) {
 	for _, tt := range infixTests {
 		program := parseAndCheckErrors(tt.input, t)
 
-		if len(program.Statements) != 1 {
-			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-				1, len(program.Statements))
-		}
-
-		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		stmt, ok := extractSingleExpressionStatement(t, program)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			return
 		}
 
 		if !testInfixExpression(t, stmt.Expression, tt.leftValue, tt.operator, tt.rightValue) {
 			return
 		}
+	}
+}
+
+func TestParsingIndexExpressions(t *testing.T) {
+	input := "myArray[1 + 1]"
+	program := parseAndCheckErrors(input, t)
+
+	stmt, ok := extractSingleExpressionStatement(t, program)
+	if !ok {
+		return
+	}
+
+	indexExp, ok := stmt.Expression.(*ast.IndexExpression)
+	if !ok {
+		t.Fatalf("exp not *ast.IndexExpression. got=%T", stmt.Expression)
+	}
+
+	if !testIdentifier(t, indexExp.Left, "myArray") {
+		return
+	}
+
+	if !testInfixExpression(t, indexExp.Index, 1, "+", 1) {
+		return
 	}
 }
 
@@ -341,6 +357,14 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 			"(x = 1) + 1",
 			"((x = 1) + 1);",
 		},
+		{
+			"a * [1, 2, 3, 4][b * c] * d",
+			"((a * ([1, 2, 3, 4][(b * c)])) * d);",
+		},
+		{
+			"add(a * b[2], b[1], 2 * [1, 2][1])",
+			"add((a * (b[2])), (b[1]), (2 * ([1, 2][1])));",
+		},
 	}
 
 	for _, tt := range tests {
@@ -364,15 +388,9 @@ func TestBooleanExpression(t *testing.T) {
 	for _, tt := range tests {
 		program := parseAndCheckErrors(tt.input, t)
 
-		if len(program.Statements) != 1 {
-			t.Fatalf("program has not enough statements. got=%d",
-				len(program.Statements))
-		}
-
-		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		stmt, ok := extractSingleExpressionStatement(t, program)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			return
 		}
 
 		boolean, ok := stmt.Expression.(*ast.Boolean)
@@ -460,15 +478,9 @@ func TestIfExpression(t *testing.T) {
 	for _, tt := range tests {
 		program := parseAndCheckErrors(tt.input, t)
 
-		if len(program.Statements) != 1 {
-			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
-				1, len(program.Statements))
-		}
-
-		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		stmt, ok := extractSingleExpressionStatement(t, program)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			return
 		}
 
 		exp, ok := stmt.Expression.(*ast.IfExpression)
@@ -534,15 +546,9 @@ func TestFunctionLiteralParsing(t *testing.T) {
 
 	program := parseAndCheckErrors(input, t)
 
-	if len(program.Statements) != 1 {
-		t.Fatalf("program.Body does not contain %d statements. got=%d\n",
-			1, len(program.Statements))
-	}
-
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	stmt, ok := extractSingleExpressionStatement(t, program)
 	if !ok {
-		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-			program.Statements[0])
+		return
 	}
 
 	function, ok := stmt.Expression.(*ast.FunctionLiteral)
@@ -585,7 +591,11 @@ func TestFunctionParameterParsing(t *testing.T) {
 	for _, tt := range tests {
 		program := parseAndCheckErrors(tt.input, t)
 
-		stmt := program.Statements[0].(*ast.ExpressionStatement)
+		stmt, ok := extractSingleExpressionStatement(t, program)
+		if !ok {
+			return
+		}
+
 		function := stmt.Expression.(*ast.FunctionLiteral)
 
 		if len(function.Parameters) != len(tt.expectedParams) {
@@ -603,15 +613,9 @@ func TestCallExpressionParsing(t *testing.T) {
 	input := "add(1, 2 * 3, 4 + 5);"
 	program := parseAndCheckErrors(input, t)
 
-	if len(program.Statements) != 1 {
-		t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-			1, len(program.Statements))
-	}
-
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	stmt, ok := extractSingleExpressionStatement(t, program)
 	if !ok {
-		t.Fatalf("stmt is not ast.ExpressionStatement. got=%T",
-			program.Statements[0])
+		return
 	}
 
 	exp, ok := stmt.Expression.(*ast.CallExpression)
@@ -1098,4 +1102,23 @@ func checkParseErrors(p *Parser, input string, t *testing.T) {
 		t.Errorf("parser error: %q", msg)
 	}
 	t.FailNow()
+}
+
+func extractSingleExpressionStatement(t *testing.T, p *ast.Program) (*ast.ExpressionStatement, bool) {
+	if len(p.Statements) != 1 {
+		t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+			1, len(p.Statements))
+
+		return nil, false
+	}
+
+	stmt, ok := p.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("stmt is not ast.ExpressionStatement. got=%T",
+			p.Statements[0])
+
+		return nil, false
+	}
+
+	return stmt, true
 }
