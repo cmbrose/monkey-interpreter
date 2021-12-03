@@ -503,14 +503,40 @@ func TestBuiltinFunctions(t *testing.T) {
 		{`len("one", "two")`, "wrong number of arguments: expected=1, got=2"},
 
 		{`first("foobar")`, "argument to `first` not supported: STRING"},
+		{`first()`, "wrong number of arguments: expected=1, got=0"},
+		{`first([], [])`, "wrong number of arguments: expected=1, got=2"},
 		{`first([])`, "array has no elements"},
 		{`first([1])`, 1},
 		{`first([1, 2])`, 1},
 
 		{`last("foobar")`, "argument to `last` not supported: STRING"},
+		{`last()`, "wrong number of arguments: expected=1, got=0"},
+		{`last([], [])`, "wrong number of arguments: expected=1, got=2"},
 		{`last([])`, "array has no elements"},
 		{`last([1])`, 1},
 		{`last([1, 2])`, 2},
+
+		{`rest("foobar")`, "argument to `rest` not supported: STRING"},
+		{`rest()`, "wrong number of arguments: expected=1, got=0"},
+		{`rest([], [])`, "wrong number of arguments: expected=1, got=2"},
+		{`rest([])`, "array has no elements"},
+		{`rest([1])`, []interface{}{}},
+		{`rest([1, 2])`, []interface{}{2}},
+
+		{`push("foobar", [])`, "argument to `push` not supported: STRING"},
+		{`push()`, "wrong number of arguments: expected=2, got=0"},
+		{`push([])`, "wrong number of arguments: expected=2, got=1"},
+		{`push([], 1)`, []interface{}{1}},
+		{`push([1], 2)`, []interface{}{1, 2}},
+		{`push([1], "foobar")`, []interface{}{1, "foobar"}},
+		{`push([1], [2])`, []interface{}{1, []interface{}{2}}},
+
+		{`pop("foobar")`, "argument to `pop` not supported: STRING"},
+		{`pop()`, "wrong number of arguments: expected=1, got=0"},
+		{`pop([], [])`, "wrong number of arguments: expected=1, got=2"},
+		{`pop([])`, "array has no elements"},
+		{`pop([1])`, []interface{}{}},
+		{`pop([1, 2])`, []interface{}{1}},
 	}
 
 	for _, tt := range tests {
@@ -519,6 +545,8 @@ func TestBuiltinFunctions(t *testing.T) {
 		switch expected := tt.expected.(type) {
 		case int:
 			testIntegerObject(t, evaluated, int64(expected))
+		case []interface{}:
+			testArrayObject(t, evaluated, expected)
 		case string:
 			testErrorObject(t, evaluated, expected)
 		}
@@ -613,6 +641,24 @@ func testEval(input string) object.Object {
 	return Eval(program, env)
 }
 
+func testObject(t *testing.T, obj object.Object, expected interface{}) bool {
+	switch expected := expected.(type) {
+	case int:
+		return testIntegerObject(t, obj, int64(expected))
+	case string:
+		return testStringObject(t, obj, expected)
+	case bool:
+		return testBooleanObject(t, obj, expected)
+	case []interface{}:
+		return testArrayObject(t, obj, expected)
+	case nil:
+		return testNullObject(t, obj)
+	default:
+		t.Fatalf("Unsupported expected type (this is a bug in the test). got=%T", expected)
+		return false
+	}
+}
+
 func testIntegerObject(t *testing.T, obj object.Object, expected int64) bool {
 	integer, ok := obj.(*object.Integer)
 	if !ok {
@@ -623,6 +669,22 @@ func testIntegerObject(t *testing.T, obj object.Object, expected int64) bool {
 	if integer.Value != expected {
 		t.Fatalf("object has wrong value. Expected=%d, got=%d",
 			expected, integer.Value)
+		return false
+	}
+
+	return true
+}
+
+func testStringObject(t *testing.T, obj object.Object, expected string) bool {
+	str, ok := obj.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", obj, obj)
+		return false
+	}
+
+	if str.Value != expected {
+		t.Fatalf("object has wrong value. Expected=%s, got=%s",
+			expected, str.Value)
 		return false
 	}
 
@@ -640,6 +702,28 @@ func testBooleanObject(t *testing.T, obj object.Object, expected bool) bool {
 		t.Fatalf("object has wrong value. Expected=%t, got=%t",
 			expected, boolean.Value)
 		return false
+	}
+
+	return true
+}
+
+func testArrayObject(t *testing.T, obj object.Object, expected []interface{}) bool {
+	arr, ok := obj.(*object.Array)
+	if !ok {
+		t.Fatalf("object is not Array. got=%T (%+v)", obj, obj)
+		return false
+	}
+
+	if len(arr.Elements) != len(expected) {
+		t.Fatalf("wrong number of items in array. expected=%d, got=%d", len(expected), len(arr.Elements))
+		return false
+	}
+
+	for idx, item := range expected {
+		actual := arr.Elements[idx]
+		if !testObject(t, actual, item) {
+			return false
+		}
 	}
 
 	return true

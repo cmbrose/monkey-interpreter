@@ -397,6 +397,11 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		p.nextToken()
 	}
 
+	if p.curTokenIs(token.EOF) {
+		msg := "block statement not closed by RBRACE"
+		p.errors = append(p.errors, msg)
+	}
+
 	return block
 }
 
