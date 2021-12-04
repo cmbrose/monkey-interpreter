@@ -1057,6 +1057,25 @@ func TestParsingEmptyHashLiteral(t *testing.T) {
 	}
 }
 
+func TestParsingHashLiteralTrailingComma(t *testing.T) {
+	input := "{1: 1,}"
+	program := parseAndCheckErrors(input, t)
+
+	stmt, ok := extractSingleExpressionStatement(t, program)
+	if !ok {
+		return
+	}
+
+	hash, ok := stmt.Expression.(*ast.HashLiteral)
+	if !ok {
+		t.Fatalf("exp is not ast.HashLiteral. got=%T", stmt.Expression)
+	}
+
+	if len(hash.Pairs) != 1 {
+		t.Errorf("hash.Pairs has wrong length. expected=1, got=%d", len(hash.Pairs))
+	}
+}
+
 func TestParsingHashLiteralsWithExpressions(t *testing.T) {
 	input := `{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}`
 	program := parseAndCheckErrors(input, t)

@@ -477,7 +477,14 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 
 		hash.Pairs[key] = value
 
-		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
+
+		if !p.peekTokenIs(token.RBRACE) && !p.curTokenIs(token.COMMA) {
+			msg := fmt.Sprintf("expected next token to be '%s' or '%s', got %s instead",
+				token.RBRACE, token.COMMA, p.peekToken.Type)
+			p.errors = append(p.errors, msg)
 			return nil
 		}
 	}
