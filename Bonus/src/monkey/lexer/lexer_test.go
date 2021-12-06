@@ -37,6 +37,8 @@ func TestNextToken(t *testing.T) {
 		[1, 2]
 
 		{"foo": "bar"}
+
+		fn(...args) {}
 	`
 
 	tests := []struct {
@@ -133,6 +135,13 @@ func TestNextToken(t *testing.T) {
 		{token.STRING, "foo"},
 		{token.COLON, ":"},
 		{token.STRING, "bar"},
+		{token.RBRACE, "}"},
+		{token.FUNCTION, "fn"},
+		{token.LPAREN, "("},
+		{token.ELLIPSIS, "..."},
+		{token.IDENT, "args"},
+		{token.RPAREN, ")"},
+		{token.LBRACE, "{"},
 		{token.RBRACE, "}"},
 		{token.EOF, ""},
 	}

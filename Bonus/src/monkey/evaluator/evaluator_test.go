@@ -221,6 +221,10 @@ func TestErrorHandling(t *testing.T) {
 			"identifier already exists: x",
 		},
 		{
+			"fn(...x, y) { }",
+			"variodic parameter must be the last parameter of a function",
+		},
+		{
 			"fn(x) { let x = 0; }(1)",
 			"identifier already exists: x",
 		},
@@ -239,6 +243,10 @@ func TestErrorHandling(t *testing.T) {
 		{
 			"fn(x) { }(1, 2)",
 			"wrong number of arguments: expected=1, got=2",
+		},
+		{
+			"fn(x, ...y) { }()",
+			"wrong number of arguments: expected=2, got=0",
 		},
 		{
 			"let x = fn() { }()",
@@ -349,7 +357,7 @@ func TestFunctionObject(t *testing.T) {
 func TestFunctionApplication(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected int64
+		expected interface{}
 	}{
 		{"let identity = fn(x) { x; }; identity(5);", 5},
 		{"let identity = fn(x) { return x; }; identity(5);", 5},
@@ -357,10 +365,16 @@ func TestFunctionApplication(t *testing.T) {
 		{"let add = fn(x, y) { x + y; }; add(5, 5);", 10},
 		{"let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20},
 		{"fn(x) { x; }(5)", 5},
+
+		{"fn(...x) { x; }()", []interface{}{}},
+		{"fn(...x) { x; }(5)", []interface{}{5}},
+		{"fn(...x) { x; }(5, 10)", []interface{}{5, 10}},
+		{"fn(x, ...y) { y; }(5)", []interface{}{}},
+		{"fn(x, ...y) { y; }(5, 10)", []interface{}{10}},
 	}
 
 	for _, tt := range tests {
-		testIntegerObject(t, testEval(tt.input), tt.expected)
+		testObject(t, testEval(tt.input), tt.expected)
 	}
 }
 

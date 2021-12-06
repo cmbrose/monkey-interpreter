@@ -117,16 +117,24 @@ func (p *Parser) ParseProgram() *ast.Program {
 }
 
 func (p *Parser) parseStatement() ast.Statement {
+	var stmt ast.Statement
 	switch p.curToken.Type {
 	case token.LET:
-		return p.parseLetStatement()
+		stmt = p.parseLetStatement()
 	case token.RETURN:
-		return p.parseReturnStatement()
+		stmt = p.parseReturnStatement()
 	case token.FOR:
-		return p.parseForLoopStatement()
+		stmt = p.parseForLoopStatement()
 	default:
-		return p.parseExpressionStatement()
+		stmt = p.parseExpressionStatement()
 	}
+
+	// Because Go's compiler is dumb and will warn this never returns nil without this
+	if stmt == nil {
+		return nil
+	}
+
+	return stmt
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
@@ -215,7 +223,12 @@ func (p *Parser) parseForLoopStatement() *ast.ForLoopStatement {
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
-	stmt.Expression = p.parseExpression(LOWEST)
+	expr := p.parseExpression(LOWEST)
+	if expr == nil {
+		return nil
+	}
+
+	stmt.Expression = expr
 
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
@@ -433,31 +446,43 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	return lit
 }
 
-func (p *Parser) parseFunctionParameters() []*ast.Identifier {
-	identifiers := []*ast.Identifier{}
+func (p *Parser) parseFunctionParameters() []*ast.FunctionParameter {
+	params := []*ast.FunctionParameter{}
 
 	if p.peekTokenIs(token.RPAREN) {
 		p.nextToken()
-		return identifiers
+		return params
 	}
 
-	p.nextToken()
-
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	identifiers = append(identifiers, ident)
-
-	for p.peekTokenIs(token.COMMA) {
+	for ok := true; ok; ok = p.nextTokenIf(token.COMMA) {
 		p.nextToken()
-		p.nextToken()
-		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		identifiers = append(identifiers, ident)
+		param := p.parseFunctionParameter()
+		params = append(params, param)
+
+		// Here we could check if param is variodic and not the last argument, but
+		// instead that validation is done in the evaluator
 	}
 
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
 
-	return identifiers
+	return params
+}
+
+func (p *Parser) parseFunctionParameter() *ast.FunctionParameter {
+	param := &ast.FunctionParameter{}
+
+	if p.curTokenIs(token.ELLIPSIS) {
+		param.IsVariodic = true
+		p.nextToken()
+	} else {
+		param.IsVariodic = false
+	}
+
+	param.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	return param
 }
 
 func (p *Parser) parseHashLiteral() ast.Expression {
@@ -547,14 +572,22 @@ func (p *Parser) peekTokenIs(tok token.TokenType) bool {
 	return tok == p.peekToken.Type
 }
 
-func (p *Parser) expectPeek(tok token.TokenType) bool {
+func (p *Parser) nextTokenIf(tok token.TokenType) bool {
 	if p.peekTokenIs(tok) {
 		p.nextToken()
 		return true
 	} else {
-		p.peekError(tok)
 		return false
 	}
+}
+
+func (p *Parser) expectPeek(tok token.TokenType) bool {
+	res := p.nextTokenIf(tok)
+	if !res {
+		p.peekError(tok)
+	}
+
+	return res
 }
 
 func (p *Parser) peekPrecedence() int {

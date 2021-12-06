@@ -42,6 +42,17 @@ func (l *Lexer) NextToken() token.Token {
 	case ':':
 		tok = newToken(token.COLON, l.ch)
 
+	case '.':
+		if l.peekChar() == '.' {
+			ch1 := l.ch
+			l.readChar()
+			if l.peekChar() == '.' {
+				ch2 := l.ch
+				l.readChar()
+				tok = token.Token{Type: token.ELLIPSIS, Literal: string(ch1) + string(ch2) + string(l.ch)}
+			}
+		}
+
 	case '+':
 		tok = newToken(token.PLUS, l.ch)
 	case '-':

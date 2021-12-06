@@ -99,9 +99,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Array{Elements: elements}
 
 	case *ast.FunctionLiteral:
-		params := node.Parameters
-		body := node.Body
-		return &object.Function{Parameters: params, Body: body, Env: env}
+		return evalFunctionLiteral(node, env)
 
 	case *ast.HashLiteral:
 		return evalHashLiteral(node, env)
@@ -157,7 +155,7 @@ func evalForLoopStatement(stmt *ast.ForLoopStatement, env *object.Environment) o
 	var continueResult object.Object = TRUE
 
 	if stmt.ContinueExpression != nil {
-		continueResult := Eval(stmt.ContinueExpression, loopEnv)
+		continueResult = Eval(stmt.ContinueExpression, loopEnv)
 		if isError(continueResult) {
 			return continueResult
 		}
@@ -395,11 +393,11 @@ func evalExpressions(exps []ast.Expression, env *object.Environment) []object.Ob
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	switch fn := fn.(type) {
 	case *object.Function:
-		if len(fn.Parameters) != len(args) {
-			return wrongNumberOfArgumentsError(len(fn.Parameters), len(args))
+		extendedEnv, errObj := extendFunctionEnv(fn, args)
+		if errObj != nil {
+			return errObj
 		}
 
-		extendedEnv := extendFunctionEnv(fn, args)
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 
@@ -411,14 +409,31 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 	}
 }
 
-func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Environment {
+func extendFunctionEnv(fn *object.Function, args []object.Object) (*object.Environment, *object.Error) {
 	env := object.NewEnclosedEnvironment(fn.Env)
 
-	for paramIdx, param := range fn.Parameters {
-		env.Add(param.Value, args[paramIdx])
+	argLen := len(args)
+	paramLen := len(fn.Parameters)
+
+	if paramLen < argLen && !(paramLen > 0 && fn.Parameters[paramLen-1].IsVariodic) {
+		return nil, wrongNumberOfArgumentsError(paramLen, argLen)
 	}
 
-	return env
+	for paramIdx, param := range fn.Parameters {
+		if param.IsVariodic {
+			// The validation that this was actually the last parameter is
+			// done when building the function in evalFunctionLiteral
+			arrayArg := &object.Array{Elements: args[paramIdx:]}
+			env.Add(param.Name.Value, arrayArg)
+			break
+		} else if paramIdx >= argLen {
+			return nil, wrongNumberOfArgumentsError(paramLen, argLen)
+		} else {
+			env.Add(param.Name.Value, args[paramIdx])
+		}
+	}
+
+	return env, nil
 }
 
 func unwrapReturnValue(obj object.Object) object.Object {
@@ -498,6 +513,24 @@ func evalHashIndexExpression(hashObj object.Object, indexExp ast.Expression, env
 	}
 
 	return pair.Value
+}
+
+func evalFunctionLiteral(function *ast.FunctionLiteral, env *object.Environment) object.Object {
+	paramLen := len(function.Parameters)
+
+	for idx, param := range function.Parameters {
+		if !param.IsVariodic {
+			continue
+		}
+
+		if idx != paramLen-1 {
+			return newError("variodic parameter must be the last parameter of a function")
+		}
+	}
+
+	params := function.Parameters
+	body := function.Body
+	return &object.Function{Parameters: params, Body: body, Env: env}
 }
 
 func evalHashLiteral(hash *ast.HashLiteral, env *object.Environment) object.Object {

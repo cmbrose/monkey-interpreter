@@ -99,9 +99,16 @@ func (fls *ForLoopStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(fls.TokenLiteral() + " (")
-	out.WriteString(fls.InitializeStatement.String() + " ")
-	out.WriteString(fls.ContinueExpression.String() + " ")
-	out.WriteString(fls.StepExpression.String() + ") ")
+
+	if fls.InitializeStatement != nil {
+		out.WriteString(fls.InitializeStatement.String() + " ")
+	}
+	if fls.ContinueExpression != nil {
+		out.WriteString(fls.ContinueExpression.String() + " ")
+	}
+	if fls.StepExpression != nil {
+		out.WriteString(fls.StepExpression.String() + ") ")
+	}
 	out.WriteString(fls.Body.String())
 
 	return out.String()
@@ -304,7 +311,7 @@ func (bs *BlockStatement) String() string {
 
 type FunctionLiteral struct {
 	Token      token.Token
-	Parameters []*Identifier
+	Parameters []*FunctionParameter
 	Body       *BlockStatement
 }
 
@@ -323,6 +330,23 @@ func (fl *FunctionLiteral) String() string {
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") ")
 	out.WriteString(fl.Body.String())
+
+	return out.String()
+}
+
+type FunctionParameter struct {
+	Name       *Identifier
+	IsVariodic bool
+}
+
+func (fp *FunctionParameter) String() string {
+	var out bytes.Buffer
+
+	if fp.IsVariodic {
+		out.WriteString("...")
+	}
+
+	out.WriteString(fp.Name.String())
 
 	return out.String()
 }

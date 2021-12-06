@@ -35,12 +35,15 @@ const (
 	SEMICOLON = ";"
 	COLON     = ":"
 
+	// Groupings
 	LPAREN   = "("
 	RPAREN   = ")"
 	LBRACE   = "{"
 	RBRACE   = "}"
 	LBRACKET = "["
 	RBRACKET = "]"
+
+	ELLIPSIS = "..."
 
 	// Keywords
 	FUNCTION = "FUNCTION"

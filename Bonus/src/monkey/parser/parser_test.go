@@ -555,8 +555,8 @@ func TestFunctionLiteralParsing(t *testing.T) {
 			len(function.Parameters))
 	}
 
-	testLiteralExpression(t, function.Parameters[0], "x")
-	testLiteralExpression(t, function.Parameters[1], "y")
+	testLiteralExpression(t, function.Parameters[0].Name, "x")
+	testLiteralExpression(t, function.Parameters[1].Name, "y")
 
 	if len(function.Body.Statements) != 1 {
 		t.Fatalf("function.Body.Statements has not 1 statements. got=%d\n",
@@ -576,10 +576,12 @@ func TestFunctionParameterParsing(t *testing.T) {
 	tests := []struct {
 		input          string
 		expectedParams []string
+		expectVariodic bool
 	}{
-		{input: "fn() {};", expectedParams: []string{}},
-		{input: "fn(x) {};", expectedParams: []string{"x"}},
-		{input: "fn(x, y, z) {};", expectedParams: []string{"x", "y", "z"}},
+		{input: "fn() {};", expectedParams: []string{}, expectVariodic: false},
+		{input: "fn(x) {};", expectedParams: []string{"x"}, expectVariodic: false},
+		{input: "fn(x, y, z) {};", expectedParams: []string{"x", "y", "z"}, expectVariodic: false},
+		{input: "fn(x, y, ...z) {};", expectedParams: []string{"x", "y", "z"}, expectVariodic: true},
 	}
 	for _, tt := range tests {
 		program := parseAndCheckErrors(tt.input, t)
@@ -597,7 +599,18 @@ func TestFunctionParameterParsing(t *testing.T) {
 		}
 
 		for i, ident := range tt.expectedParams {
-			testLiteralExpression(t, function.Parameters[i], ident)
+			testLiteralExpression(t, function.Parameters[i].Name, ident)
+
+			isFinalParam := i == len(tt.expectedParams)-1
+			if function.Parameters[i].IsVariodic {
+				if !isFinalParam {
+					t.Error("only the last parameter can be variodic\n")
+				} else if !tt.expectVariodic {
+					t.Error("final parameter was variodic but should not be\n")
+				}
+			} else if isFinalParam && tt.expectVariodic {
+				t.Error("final parameter should be variodic but was not\n")
+			}
 		}
 	}
 }
